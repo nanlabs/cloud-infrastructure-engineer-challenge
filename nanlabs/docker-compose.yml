@@ -1,0 +1,44 @@
+version: "3.8"
+
+services:
+  localstack:
+    image: localstack/localstack:latest
+    container_name: localstack
+    ports:
+      - "4566:4566"
+    environment:
+      - SERVICES=lambda,logs,cloudwatch,apigateway,iam,secretsmanager,s3
+      - DEBUG=1
+      - AWS_DEFAULT_REGION=us-east-1
+    volumes:
+      - "./.localstack:/var/lib/localstack"
+      - "/var/run/docker.sock:/var/run/docker.sock"
+    networks: ["localstack-net"]
+
+  backend:
+    image: ghcr.io/nicholasjackson/fake-service:v0.26.2
+    container_name: backend
+    environment:
+      - LISTEN_ADDR=0.0.0.0:9090
+      - NAME=local-backend
+    ports:
+      - "5001:9090"
+    depends_on: [localstack]
+    networks: ["localstack-net"]
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: pg-local
+    environment:
+      - POSTGRES_DB=appdb
+      - POSTGRES_USER=appuser
+      - POSTGRES_PASSWORD=apppass
+    ports:
+      - "5432:5432"   
+    volumes:
+      - ./db-init:/docker-entrypoint-initdb.d:ro
+    networks: ["localstack-net"]
+
+networks:
+  localstack-net:
+    driver: bridge
