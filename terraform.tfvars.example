@@ -1,0 +1,26 @@
+#NETWORK
+aws_region      = "us-east-1"
+vpc_cidr        = "10.2.64.0/18"
+private_subnets = ["10.2.64.0/23", "10.2.66.0/23"]
+public_subnets  = ["10.2.70.0/23", "10.2.72.0/23"]
+azs_count       = 2
+#azs                 = ["us-east-2a", "us-east-2b", "us-east-2c"]
+
+#API GATEWAY
+stage_name = "v1"
+
+#RDS
+instance_class          = "db.m5.large"
+allocated_storage       = 20
+max_allocated_storage   = 100
+backup_retention_period = 7
+multi_az                = false
+dbname                  = "myappdb"
+engine                  = "postgres"
+engine_version          = "17.2"
+username                = "postgres"
+
+#TAGGING
+project     = "cloud-infra-challenge"
+environment = "dev"
+owner       = "karla.yacolca"

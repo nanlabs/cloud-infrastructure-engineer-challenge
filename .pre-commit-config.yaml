@@ -1,0 +1,23 @@
+repos:
+  - repo: https://github.com/antonbabenko/pre-commit-terraform
+    rev: "v1.74.1"
+    hooks:
+      - id: terraform_fmt
+      - id: terraform_validate
+      - id: terraform_tflint
+
+  - repo: local
+    hooks:
+      - id: terraform-docs-for-modules
+        name: terraform-docs for each module
+        language: system
+        entry: bash -c "for module in $(find modules -type f -name '*.tf' -exec dirname {} \; | sort -u); do echo Running terraform-docs in $module; (cd $module && terraform-docs markdown table --output-file README.md --output-mode inject .); done"
+        files: ^modules/.*/.*\.tf$
+        pass_filenames: false
+
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: "v5.0.0"
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml

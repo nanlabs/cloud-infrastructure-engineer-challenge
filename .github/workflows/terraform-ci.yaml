@@ -1,0 +1,277 @@
+name: "Terraform CI checks"
+
+permissions:
+  contents: write
+  pull-requests: write
+
+on:
+
+  pull_request:
+    branches:
+      - main
+    paths:
+      - modules/**/*.tf
+
+env:
+  TERRAFORM_VERSION: "1.5.7" # Define the Terraform version here
+  TF_LINT_VERSION: "v0.52.0"
+
+jobs:
+  terraform-fmt:
+    name: Check Terraform Format
+    runs-on: ubuntu-22.04
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
+
+      - name: Get changed modules
+        id: changed-modules
+        uses: tj-actions/changed-files@v35
+        with:
+          files: modules/**/*.tf
+
+      # - name: Install colordiff
+      #   run: sudo apt-get install colordiff
+
+      - name: Run Terraform fmt
+        run: |
+          echo "Run for ${{ steps.changed-modules.outputs.all_changed_files }}"
+          has_failure=0
+          # Extract unique directories from changed files
+          unique_dirs=$(echo "${{ steps.changed-modules.outputs.all_changed_files }}" | xargs -n 1 dirname | sort -u)
+
+          for module_dir in $unique_dirs; do
+            echo "Running fmt in $module_dir"
+            terraform fmt -check -recursive -diff "$module_dir" || {
+              echo "Format failed for $module_dir"
+              has_failure=1
+            }
+          done
+          if [ "$has_failure" -eq 1 ]; then
+            echo "Format checks failed in one or more directories."
+            exit 1
+          fi
+
+  terraform-validate:
+    name: Validate Terraform Configuration
+    runs-on: ubuntu-22.04
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
+
+      - name: Get changed modules
+        id: changed-modules
+        uses: tj-actions/changed-files@v35
+        with:
+          files: modules/**/*.tf
+
+      - name: Run Terraform validate
+        run: |
+          echo "Running terraform validate for changed modules"
+          has_failure=0
+          unique_dirs=$(echo "${{ steps.changed-modules.outputs.all_changed_files }}" | xargs -n 1 dirname | sort -u)
+
+          for module_dir in $unique_dirs; do
+            echo "Initializing and validating $module_dir"
+            terraform -chdir="$module_dir" init -backend=false -input=false > /dev/null
+            terraform -chdir="$module_dir" validate || {
+              echo "Validation failed for $module_dir"
+              has_failure=1
+            }
+          done
+
+          if [ "$has_failure" -eq 1 ]; then
+            echo "Validation failed in one or more directories."
+            exit 1
+          fi
+
+  terraform-tflint:
+    name: Check TFLint
+    runs-on: ubuntu-22.04
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
+
+      - uses: actions/cache@v4
+        name: Cache plugin dir
+        with:
+          path: ~/.tflint.d/plugins
+          key: ${{ matrix.os }}-tflint-${{ hashFiles('.tflint.hcl') }}
+
+      - name: Setup TFLint
+        uses: terraform-linters/setup-tflint@v4
+        with:
+          tflint_version: ${{ env.TF_LINT_VERSION }} # Specify your desired TFLint version
+
+      - name: Get changed modules
+        id: changed-modules
+        uses: tj-actions/changed-files@v35
+        with:
+          files: modules/**/*.tf
+
+      - name: Init TFLint
+        run: tflint --init
+
+      - name: Run TFLint in Multiple Folders
+        run: |
+          echo "Run for ${{ steps.changed-modules.outputs.all_changed_files }}"
+          has_failure=0
+          # Extract unique directories from changed files
+          unique_dirs=$(echo "${{ steps.changed-modules.outputs.all_changed_files }}" | xargs -n 1 dirname | sort -u)
+
+          for module_dir in $unique_dirs; do
+            echo "Running TFlint in $module_dir"
+            tflint -f compact --chdir="$module_dir" --config="$(pwd)/.tflint.hcl" || {
+              echo "TFlint failed for $module_dir"
+              has_failure=1
+            }
+          done
+
+          if [ "$has_failure" -eq 1 ]; then
+            echo "TFlint checks failed in one or more directories."
+            exit 1
+          fi
+
+  tfsec:
+    name: Run Tfsec
+    runs-on: ubuntu-22.04
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
+
+      - name: Pull Tfsec
+        run: |
+          docker pull aquasec/tfsec
+
+      - name: Get changed modules
+        id: changed-modules
+        uses: tj-actions/changed-files@v35
+        with:
+          files: modules/**/*.tf
+
+      - name: Run Tfsec with Docker
+        run: |
+          echo "Run for ${{ steps.changed-modules.outputs.all_changed_files }}"
+          has_failure=0
+          # Extract unique directories from changed files
+          unique_dirs=$(echo "${{ steps.changed-modules.outputs.all_changed_files }}" | xargs -n 1 dirname | sort -u)
+
+          for module_dir in $unique_dirs; do
+            echo "Running Tfsec in $module_dir"
+            docker run --rm -v "$(pwd):/src" aquasec/tfsec /src/"$module_dir" || {
+              echo "Tfsec failed for $module_dir"
+              has_failure=1
+            }
+          done
+
+          if [ "$has_failure" -eq 1 ]; then
+            echo "Tfsec checks failed in one or more directories."
+            exit 1
+          fi
+
+  checkov:
+    name: Run Checkov
+    runs-on: ubuntu-22.04
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Pull Checkov
+        run: |
+          docker pull bridgecrew/checkov
+
+      - name: Get changed modules
+        id: changed-modules
+        uses: tj-actions/changed-files@v35
+        with:
+          files: modules/**/*.tf
+
+      - name: Run Checkov in Unique Folders Using Docker
+        run: |
+          echo "Run for ${{ steps.changed-modules.outputs.all_changed_files }}"
+          has_failure=0
+          # Extract unique directories from changed files
+          unique_dirs=$(echo "${{ steps.changed-modules.outputs.all_changed_files }}" | xargs -n 1 dirname | sort -u)
+
+          for module_dir in $unique_dirs; do
+            echo "Running Checkov in $module_dir"
+            docker run --tty --rm --volume "$(pwd):/tf" --workdir "/tf/$module_dir" bridgecrew/checkov --directory . || {
+              echo "Checkov failed for $module_dir"
+              has_failure=1
+            }
+          done
+
+          if [ "$has_failure" -eq 1 ]; then
+            echo "Checkov checks failed in one or more directories."
+            exit 1
+          fi
+
+  terraform-docs:
+    name: Run terraform-docs
+    runs-on: ubuntu-22.04
+    needs:
+      - terraform-fmt
+      - terraform-validate
+      - terraform-tflint
+      # - tfsec
+      # - checkov
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
+
+      - uses: actions/checkout@v3
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+
+      - name: Get changed modules
+        id: changed-modules
+        uses: tj-actions/changed-files@v35
+        with:
+          files: modules/**/*.tf
+
+      - name: Generate Comma-Separated List of Directories
+        id: generate_dirs
+        run: |
+          # Extract unique directories from changed files
+          unique_dirs=$(echo "${{ steps.changed-modules.outputs.all_changed_files }}" | xargs -n 1 dirname | sort -u)
+
+          # Convert the directories into a comma-separated list
+          dirs_comma_separated=$(echo "$unique_dirs" | paste -sd "," -)
+
+          # Output the comma-separated list for debugging
+          echo "Comma-separated list of directories: $dirs_comma_separated"
+
+          # Set the comma-separated list as an output variable
+          echo "dirs_comma_separated=$dirs_comma_separated" >> $GITHUB_ENV
+
+      - name: Run Terraform Docs in Changed Directories and Push Changes
+        uses: terraform-docs/gh-actions@main
+        with:
+          working-dir: ${{ env.dirs_comma_separated }}
+          output-file: README.md
+          output-method: inject
+          git-push: "true"
