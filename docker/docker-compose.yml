@@ -1,0 +1,43 @@
+services:
+  postgres:
+    container_name: container-pg
+    image: postgres:15-alpine
+    hostname: localhost
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: root
+      POSTGRES_DB: test_db
+    
+    # para que los datos de la base persistan (creo que no hace falta igual para que funcione)
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+  
+    # para mejorar la disponibilidad (que trate de arrancar de nuevo salvo que se la haya stopeado)
+    restart: unless-stopped
+
+  local-lambda:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: local-info-lambda
+    restart: on-failure
+    # alta de base de datos antes de alta de lambda
+    depends_on:
+      - postgres
+    ports:
+      # trafico pasa por mi 9000 y docker lo manda a su 8080 que es el puerto default de lambda
+      # esto es necesario porque mi 8080 es importante y puede ser utilizado por otro proceso
+      - "9000:8080"
+    
+    # variables de entorno para lambda
+    environment:
+      # nombre de servicio definido mas arriba en vez de nombre de hostname para DB_HOST
+      DB_HOST: postgres 
+      DB_USER: admin
+      DB_NAME: test_db
+      DB_PASSWORD: root
+      
+volumes:
+  postgres_data:

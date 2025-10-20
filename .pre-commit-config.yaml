@@ -1,0 +1,12 @@
+repos:
+- repo: https://github.com/antonbabenko/pre-commit-terraform
+  rev: v1.102.0
+  hooks:
+  # tflint for linting
+    - id: terraform_tflint
+      verbose: true
+      args:
+      - --args=--config=__GIT_WORKING_DIR__/.tflint.hcl
+  # trivy for security
+    - id: terraform_trivy
+      verbose: true

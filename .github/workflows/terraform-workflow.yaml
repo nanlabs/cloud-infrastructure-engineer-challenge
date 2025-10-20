@@ -1,0 +1,29 @@
+name: terraform-workflow
+
+on: 
+  push:  
+    branches: ["feature/nanlabs-seba"]
+
+jobs:  
+  terraform: 
+    name: Terraform Workflow
+    runs-on: ubuntu-latest
+    
+    steps:
+    # esto hace que el código sea accesible por gh actions
+    - name: Checkout Repo
+      uses: actions/checkout@v4
+    # action de hashicorp para facilitar setup de tf
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v3
+      with: 
+        terraform_version: 1.13.3
+
+    - name: Terraform Init
+      run: terraform init
+
+    - name: Terraform Format
+      run: terraform fmt
+
+    - name: Terraform Validate
+      run: terraform validate
