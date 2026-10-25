@@ -1,0 +1,9 @@
+framework:
+  - terraform
+  - dockerfile
+  - github_actions
+directory:
+  - .
+compact: true
+quiet: true
+download-external-modules: false

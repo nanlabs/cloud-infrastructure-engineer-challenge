@@ -1,0 +1,49 @@
+# Terraform working data. The provider lock file (.terraform.lock.hcl) is committed on purpose.
+**/.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+tfplan
+crash.log
+crash.*.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+.terraformrc
+terraform.rc
+
+# Only the two roots pin providers; modules inherit the root's selection.
+terraform/modules/**/.terraform.lock.hcl
+
+# Variable files hold non-sensitive settings and are tracked; anything else is not.
+*.auto.tfvars
+secrets.tfvars
+*.tfvars.json
+
+# Secrets and local environment files
+.env
+.env.*
+!.env.example
+*.pem
+!functions/info/src/info_api/certs/*.pem
+*.key
+
+# Build output
+build/
+dist/
+*.zip
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Editors and operating systems
+.idea/
+.vscode/
+.DS_Store
