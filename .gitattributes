@@ -1,0 +1,6 @@
+# Normalize line endings so hooks, CI (Linux) and Windows checkouts agree
+* text=auto eol=lf
+
+*.png binary
+*.jpg binary
+*.zip binary

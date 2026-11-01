@@ -1,0 +1,33 @@
+# Local simulation of the Lambda -> PostgreSQL path (see README "Local testing").
+# Credentials below are throwaway values for a local container, never used in AWS.
+name: info-api-local
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: app
+      POSTGRES_USER: dbadmin
+      POSTGRES_PASSWORD: local-only-password
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dbadmin -d app"]
+      interval: 2s
+      timeout: 3s
+      retries: 15
+
+  lambda:
+    build: ./lambda
+    environment:
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_NAME: app
+      DB_USER: dbadmin
+      DB_PASSWORD: local-only-password
+      DB_SSL: "false"
+      DB_INSTANCE_CLASS: docker-local
+      DB_MULTI_AZ: "false"
+    ports:
+      - "9000:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy

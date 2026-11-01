@@ -1,0 +1,50 @@
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+tfplan
+crash.log
+crash.*.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+.terraformrc
+terraform.rc
+# Real variable files may hold environment specific values; only the example is versioned
+*.tfvars
+*.tfvars.json
+!*.tfvars.example
+
+# TFLint plugins
+.tflint.d/
+
+# Lambda build artifacts
+lambda/build/
+terraform/.build/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+
+# Local environment / secrets
+.env
+.env.*
+!.env.example
+
+# OS / editors
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# MCP
+.mcp.json
+
+# Claude Code local settings (personal permissions, not shared)
+.claude/settings.local.json

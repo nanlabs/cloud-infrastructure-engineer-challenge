@@ -1,0 +1,26 @@
+# Copy to terraform.tfvars and adjust. Every value below is optional (defaults shown).
+
+aws_region  = "us-east-1"
+project     = "nanlabs-challenge"
+environment = "dev"
+
+# Network
+vpc_cidr           = "10.0.0.0/16"
+az_count           = 2
+single_nat_gateway = true # false = one NAT Gateway per AZ
+
+# Database
+db_instance_class        = "db.t4g.micro"
+db_multi_az              = true
+db_backup_retention_days = 7
+db_deletion_protection   = false # true for production
+db_skip_final_snapshot   = false # false keeps "<name>-final" snapshot on destroy
+
+# API
+api_throttling_rate_limit  = 10
+api_throttling_burst_limit = 20
+
+# Monitoring: AWS sends a confirmation email to this address
+# alarm_email = "you@example.com"
+
+log_retention_days = 14

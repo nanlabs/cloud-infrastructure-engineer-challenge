@@ -1,0 +1,103 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  TERRAFORM_VERSION: "1.14.9"
+  TFLINT_VERSION: "v0.65.0"
+  TRIVY_VERSION: "v0.76.1"
+
+# Third-party actions are pinned to a commit SHA (tags are mutable); Dependabot keeps them updated.
+jobs:
+  pre-commit:
+    name: pre-commit (fmt, validate, tflint, ruff, hygiene)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.13"
+
+      - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
+        with:
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
+          terraform_wrapper: false
+
+      - uses: terraform-linters/setup-tflint@6ffdbaa3be476b3431f7275c26966ef32ff60337 # v6.3.2
+        with:
+          tflint_version: ${{ env.TFLINT_VERSION }}
+
+      - name: Install TFLint plugins
+        run: tflint --init --config "$GITHUB_WORKSPACE/.tflint.hcl"
+        env:
+          # Authenticated download of the AWS ruleset (avoids GitHub API rate limits)
+          GITHUB_TOKEN: ${{ github.token }}
+
+      - uses: pre-commit/action@2c7b3805fd2a0fd8c1884dcaebf91fc102a13ecd # v3.0.1
+        env:
+          SKIP: terraform_trivy # runs in the dedicated trivy job
+
+  trivy:
+    name: Trivy IaC security scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # Blocking gate: every HIGH/CRITICAL finding is either fixed or an annotated accepted risk
+      - uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          version: ${{ env.TRIVY_VERSION }}
+          scan-type: config
+          scan-ref: terraform
+          severity: HIGH,CRITICAL
+          exit-code: "1"
+
+  lambda-local:
+    name: Lambda against PostgreSQL (Docker)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Start PostgreSQL and the Lambda runtime emulator
+        run: docker compose up --detach --build --wait
+
+      - name: GET /info reports a connected database
+        run: |
+          response=$(curl -sf -X POST http://localhost:9000/2015-03-31/functions/function/invocations \
+            --data-binary @lambda/events/get-info.json)
+          echo "$response" | jq '.body | fromjson'
+          echo "$response" | jq -e '.statusCode == 200 and (.body | fromjson | .database.status == "connected")'
+
+      - name: GET /info reports 503 when the database is down
+        run: |
+          docker compose stop postgres
+          response=$(curl -sf -X POST http://localhost:9000/2015-03-31/functions/function/invocations \
+            --data-binary @lambda/events/get-info.json)
+          echo "$response" | jq '.body | fromjson'
+          echo "$response" | jq -e '.statusCode == 503 and (.body | fromjson | .database.status == "unreachable")'
+
+      - name: Container logs
+        if: always()
+        run: docker compose logs
+
+      - name: Tear down
+        if: always()
+        run: docker compose down --volumes

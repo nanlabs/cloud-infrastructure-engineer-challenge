@@ -1,0 +1,6 @@
+target-version = "py313"
+line-length = 100
+
+[lint]
+# pycodestyle, pyflakes, isort, bugbear, pyupgrade and bandit (security)
+select = ["E", "W", "F", "I", "B", "UP", "S"]

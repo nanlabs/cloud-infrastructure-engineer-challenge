@@ -1,0 +1,3 @@
+build/
+events/
+**/__pycache__/

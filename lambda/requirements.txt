@@ -1,0 +1,2 @@
+# Pure-Python PostgreSQL driver: builds the same package on any OS/CPU (no psycopg2 native wheels)
+pg8000==1.31.6
